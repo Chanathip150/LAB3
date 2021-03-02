@@ -54,6 +54,8 @@ typedef struct
 
 ADCStructure ADCChannel[2] = {0};
 
+float ADCOutputConverted = 0 ;
+int ADCMode  = 0 ;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,6 +67,8 @@ static void MX_ADC1_Init(void);
 
 void ADCInKeep();
 void ADCPollingUpdatre();
+void ADCMode_0() ;
+void ADCMode_1() ;
 
 /* USER CODE END PFP */
 
@@ -104,7 +108,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+  GPIO_PinState BlueSwitch[2] ;
+  uint32_t Timestamp = 0 ;
 
+
+  ADCInKeep();
 
   /* USER CODE END 2 */
 
@@ -112,7 +120,29 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  ADCPollingUpdatre() ;
 
+	  if(HAL_GetTick() - Timestamp >= 100)
+	  	  {
+		   BlueSwitch[0] = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) ;
+		   if(BlueSwitch[1] == GPIO_PIN_SET && BlueSwitch[0] == GPIO_PIN_RESET)
+		   {
+			   if(ADCMode == 0)
+			   {ADCMode = 1;}
+			   else
+			   {ADCMode = 0;}
+		   }
+		   BlueSwitch[1] = BlueSwitch[0] ;
+	  	  }
+
+	  if(ADCMode == 0)
+	  {
+		  ADCMode_0();
+	  }
+	  if(ADCMode == 1)
+	  {
+		  ADCMode_1();
+	  }
 	  //uint16 LED = HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET)/
     /* USER CODE END WHILE */
 
@@ -299,7 +329,7 @@ void ADCInKeep()
 }
 void ADCPollingUpdatre()
 {
-	for(int i = 0;i < 3;i++)
+	for(int i = 0;i < 2;i++)
 	{
 	//เลือกช่อง
 	HAL_ADC_ConfigChannel(&hadc1,&ADCChannel[i].Config) ;
@@ -308,14 +338,26 @@ void ADCPollingUpdatre()
 	//CPU รอ
 	if(HAL_ADC_PollForConversion(&hadc1, 10)== HAL_OK )
 		{
-			ADCChannel[0].Data = HAL_ADC_GetValue(&hadc1) ; //เก็บค่า
+			ADCChannel[i].Data = HAL_ADC_GetValue(&hadc1) ; //เก็บค่า
 		}
 	//Stop
 	HAL_ADC_Stop(&hadc1) ;
 	}
 }
 
+float Vcc  = 3.3 ;
+float Vref = 4096 ;
 
+void ADCMode_0()
+{
+      ADCOutputConverted = ((Vcc/Vref)*ADCChannel[0].Data)*1000 ;
+}
+float V25 = 0.76 ; //v
+float Vvag_Slope = 0.0025 ; //v/c
+void  ADCMode_1()
+{
+	 ADCOutputConverted = ((((Vcc/Vref)*ADCChannel[1].Data)-V25)/Vvag_Slope )+ 25 ;
+}
 /* USER CODE END 4 */
 
 /**
